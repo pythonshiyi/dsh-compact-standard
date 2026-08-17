@@ -19,11 +19,14 @@
   - 代码、命令、公式、关键步骤保持**完整可执行**，绝不刻意压缩。
 - 保留完整 Standard 工具目录，不降低能力。
 - 针对 DSH 的独立优化：
-  - `dsh-persona` 使用 `complete: true`，system prompt 严格等于所写内容，
-    Harness 身份/工具指南不会稀释压缩规则；
+  - `dsh-persona` 使用普通 section（**不使用** `complete: true`），保证 plan mode
+    等协作提示词段仍然生效；
   - `includeRuntimeContext: false` 保持提示词精简；
   - `tool-bootstrap` 首次模型请求只暴露 shell/read，首次持久工具调用或回复后
-    晋升为完整 Standard 目录（来自 `dsh-anchored-standard` 的 V4 Pro 轨迹优化）。
+    晋升为完整 Standard 目录——仅作为**首请求工具面缩减**，不声称是 V4 轨迹锚定。
+- 若还想去掉 Harness 身份开场白且保留 plan mode，请在 host 层
+  `@deepseek-ai/dsh-system-prompt`（base.cordis.yml）设置
+  `includeHarnessIdentity: false`；preset 本身不能配置该 host 项。
 
 ## 系统提示词
 

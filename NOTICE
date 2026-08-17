@@ -1,4 +1,4 @@
-dsh-compact-standard includes adapted copies of:
+dsh-compact-standard includes adapted copies of, and work inspired by:
 
 1. The DeepSeek Harness Standard agent preset from:
 
@@ -9,14 +9,16 @@ dsh-compact-standard includes adapted copies of:
 
      Copyright (c) 2026 DeepSeek
 
-2. The community `dsh-anchored-standard` preset (including its
-   `tool-bootstrap.mjs`) from:
+2. The community `dsh-anchored-standard` preset from:
 
      https://github.com/xiaobright/dsh-anchored-standard
 
    dsh-anchored-standard is distributed under the MIT License:
 
      Copyright (c) 2026 xiaobright
+
+   Note: this repository's `tool-bootstrap.mjs` is a rewritten implementation
+   inspired by the original; it is not a verbatim adapted copy.
 
 The full MIT permission notice is included in this repository's LICENSE file.
 

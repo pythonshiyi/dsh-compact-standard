@@ -1,3 +1,3 @@
 name: Compact Standard (compressed expert)
-description: Full Standard tool catalog with an extreme compact-output expert prompt; DSH-optimized bootstrap and minimal system prompt.
+description: Full Standard tool catalog with an extreme compact-output expert prompt; first-request tool-surface reduction and lean runtime context.
 order: 6

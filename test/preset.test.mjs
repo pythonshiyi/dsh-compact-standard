@@ -25,9 +25,16 @@ test('persona uses the compact-output expert prompt', () => {
 })
 
 test('DSH optimizations are enabled', () => {
-  assert.match(agent, /complete:\s*true/)
+  // `complete: true` would suppress plan-mode and other sections; must NOT be set.
+  assert.doesNotMatch(agent, /^\s*complete:\s*true\s*$/m)
   assert.match(agent, /includeRuntimeContext:\s*false/)
   assert.match(agent, /tool-bootstrap/)
+})
+
+test('plan-mode section remains active', () => {
+  assert.match(agent, /id:\s*plan-mode/)
+  assert.match(agent, /name:\s*'@deepseek-ai\/dsh-plan-mode'/)
+  assert.match(agent, /You are in plan mode/)
 })
 
 test('full Standard tool catalog remains present', () => {

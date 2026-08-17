@@ -1,11 +1,17 @@
 # The `compact-standard` preset: full Standard capabilities with an extreme
 # compact-output expert prompt. The DSH-specific optimizations are:
-#   - `complete: true` keeps the system prompt exactly as written, so Harness
-#     identity and per-tool guidance cannot dilute the compression rules.
+#   - A normal persona section (NOT `complete: true`) so plan-mode and other
+#     cooperative prompt sections keep working.
 #   - `includeRuntimeContext: false` keeps the prompt lean and leaves task and
 #     repository rules to user messages and explicit file reads.
-#   - `tool-bootstrap` keeps the first request on shell/read, then exposes the
-#     full Standard catalog after the first durable tool call or reply.
+#   - `tool-bootstrap` keeps the FIRST request on shell/read, then exposes the
+#     full Standard catalog after the first durable tool call or reply. This is
+#     a first-request tool-surface reduction, not a V4 trajectory anchor.
+#
+# If you also want to remove the Harness identity opener while preserving
+# plan-mode rules, set `includeHarnessIdentity: false` on the HOST
+# `@deepseek-ai/dsh-system-prompt` row (base.cordis.yml); a preset cannot own
+# that host-level config.
 #
 # This file is an AGENT-PLANE composition. The roster mounts it ONCE under a
 # standing scope; every session naming it joins by scope parentage, so the
@@ -26,8 +32,10 @@
 
 # ── identity ────────────────────────────────────────────────────────────────
 
-# `complete` prevents the Harness identity and per-tool guidance from changing
-# the system prompt, while runtime-context suppression leaves task and
+# Do NOT set `complete: true` here: it suppresses every other section,
+# including the plan-mode policy. Use a normal section instead and optionally
+# disable the host identity from base.cordis.yml with
+# `includeHarnessIdentity: false`. Runtime-context suppression leaves task and
 # repository rules to user messages and explicit file reads. Tool schemas and
 # their runtime enforcement remain.
 - id: persona
@@ -54,7 +62,6 @@
 
       【创造模式】
       - 在保证准确与完整的前提下，允许用高信息密度的结构、类比、命名、抽象来提升表达效率；不以牺牲能力换取压缩。
-    complete: true
     includeRuntimeContext: false
 
 - id: agent-instructions
@@ -62,13 +69,15 @@
   config:
     maxBytes: 65536
 
-# V4 Pro conditions strongly on the API tool catalog. Bootstrap its first model
-# request with one native shell plus `read`; after the session records its first
-# durable promotion signal (a tool call OR the first assistant message, default
+# First-request tool-surface reduction. Keep the first model request on one
+# native shell plus `read`; after the session records its first durable
+# promotion signal (a tool call OR the first assistant message, default
 # `promoteOn: either`), later step assemblies expose every Standard tool
 # registered below. Request #1 always sees the bootstrap catalog; request #2
 # always sees the full catalog — a text-only first reply can no longer trap the
 # session in bootstrap. See tool-bootstrap.mjs for the other triggers.
+# This is not claimed to be a V4 trajectory optimization; it only shrinks the
+# tool surface seen by the first model request.
 - id: tool-bootstrap
   name: ./tool-bootstrap.mjs
   config:

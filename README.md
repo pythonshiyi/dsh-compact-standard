@@ -22,12 +22,17 @@ affiliated with or endorsed by DeepSeek.
     executable** — never deliberately compressed.
 - Keeps the full Standard tool catalog, so capability is not reduced.
 - Adds DSH-specific optimizations:
-  - `complete: true` on `dsh-persona` keeps the system prompt exactly as
-    written, so Harness identity/per-tool guidance cannot dilute the rules;
+  - a normal `dsh-persona` section instead of `complete: true`, so plan-mode
+    and other cooperative prompt sections remain active;
   - `includeRuntimeContext: false` keeps the prompt lean;
   - `tool-bootstrap` exposes only shell/read on the first model request, then
     promotes to the full Standard catalog after the first durable tool call or
-    reply (V4 Pro trajectory optimization from `dsh-anchored-standard`).
+    reply — a first-request tool-surface reduction only, not a trajectory
+    anchor.
+- To also remove the Harness identity opener while preserving plan-mode rules,
+  set `includeHarnessIdentity: false` on the host
+  `@deepseek-ai/dsh-system-prompt` row (base.cordis.yml); a preset cannot own
+  that host-level config.
 
 ## System prompt
 
