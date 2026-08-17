@@ -20,27 +20,38 @@
   假设显式标注）、风险提示与回滚义务、DSH 工具结果提炼、以及"对话内明确指令
   可覆盖默认压缩"的覆盖规则。
 - 保留完整 Standard 工具目录，不降低能力。
+- **v0.3.0 确定性省 token 杠杆**（实测，见 EXPERIMENT.md §9）：
+  - `tool-compact`：装配期对模型面工具/参数描述做白名单式压缩。结构键、
+    未命中工具与未命中参数逐字节不变；运行失败降级为原目录。实测真实
+    25 工具目录：**26,638 → 21,963 字符（−17.6%，每请求省约 4.7K 字符，
+    未缓存前约 1.2K+ tokens）**，结构零漂移（测试断言）。执行仍走注册表
+    自身定义——只改写模型看到的字符串。其行下加 `disabled: true` 即可
+    与原始目录做干净 A/B。
+  - `tool-bootstrap` **重新默认启用**：v0.2.0 以「host 默认已提供等价首请求
+    锚定」为由禁用，本机实测证伪——关闭自带 bootstrap 后首个请求暴露完整
+    25 工具目录（33.7K 字符 header vs 启用时 12.1K；bench 中
+    session-881eba9a vs session-6c0b72a4），且「先读后写」边界丢失。
+    2 工具锚定此前只存在于本 preset 自带 bootstrap 提供之时。
 - 针对 DSH 的优化（v0.2.0 起严格按实测口径）：
   - `dsh-persona` 使用普通 section（**不使用** `complete: true`），plan mode 等
-    协作提示词段仍然生效；`includeRuntimeContext: false` 保持提示词精简；
-  - `tool-bootstrap` **默认禁用**：DSH rc.5+ 默认 preset（anchored-standard）已内置
-    等价的首请求工具面缩减（实测两者首请求均只暴露 shell/read 两个工具），
-    本 preset 不再重复挂载；若你的 host 组合没有 anchored bootstrap，可移除
-    `disabled: true` 行自行启用。
+    协作提示词段仍然生效；`includeRuntimeContext: false` 保持提示词精简。
 
-## 实测口径（v0.2.0，见 EXPERIMENT.md §8 与 docs/BENCHMARK.md）
+## 实测口径（v0.3.0，见 EXPERIMENT.md §9 与 docs/BENCHMARK.md）
 
 | 项 | 实测数值（本机、DSH rc.6、deepseek-v4-flash） |
 |---|---|
 | persona 注入 | 是（会话 system prompt 逐字命中） |
-| persona 长度 | 0.1.2：1,098 字符 → 0.2.0：738 字符（**−33%**，9 节能力全保留） |
-| 首请求工具面 | 2 工具（pwsh+read），与默认相同 → 自带 bootstrap 无边际增益，已默认禁用 |
+| persona 长度 | 738 字符（9 节能力全保留） |
+| 工具目录大小/请求 | `tool-compact` 下 26,638 → 21,963 字符（**−17.6%**，结构键不动，25/25 工具保留） |
+| 首请求工具面 | 启用 bootstrap：2 工具（pwsh+read）；禁用则首请求全 25 工具（33.7K 字符 header） |
 | 系统提示 | 默认 46 字符 → 本 preset 约 7,022 字符（未缓存每请求 +2.4–2.6K tokens，缓存摊薄） |
 | 输出/reasoning | 本机数据被 provider 切换混淆（opencode-go），**不做归因**；结论：需 `bench/run.mjs` 受控 A/B 才能判定 |
 
-**诚实结论**：本 preset 的确定性作用是 persona（软性指令，影响输出风格与思考
-倾向）与系统提示置换；真正的 token 大头在 host 层。配合 `scripts/install.mjs`
-做 host 调优后收益远大于 persona 本身。
+**诚实结论**：本 preset 的确定性作用是 (a) 工具目录压缩（tool-compact，
+实测 −17.6%，是 preset 层可拥有的最大每请求杠杆）、(b) 首请求 2 工具锚定
+（bootstrap）、(c) persona（软性指令，影响输出风格与思考倾向）。其余未计费
+输入的大头在 host 层；配合 `scripts/install.mjs` 做 host 调优后收益远大于
+persona 本身（见 docs/HOST-TUNING.md）。
 
 ## 系统提示词
 
@@ -123,18 +134,24 @@ expert)**。不要在已经产生内容的会话中途切换 preset。
 
 ## 验证
 
-- 静态：`npm test`（persona 9 节断言、bootstrap 默认禁用断言、工具目录完整性、
-  测量工具存在性）。
+- 静态：`npm test`（persona 9 节断言、bootstrap 默认启用与 tool-compact 挂载
+  断言、工具目录完整性、真实 25 工具 fixture 上的结构零漂移与压缩率回归）。
 - 运行时：`npm run bench [<会话目录或文件>]`——从 `~/.dsh/sessions` 的
-  zstd 日志聚合每个会话的系统提示长度、首请求工具面、输入/输出/reasoning/
-  缓存 tokens、首字延迟、最终答复长度。首请求 system prompt 应包含压缩规则；
-  对比同一 provider 下的基线会话方可判定效果（doc 见 docs/BENCHMARK.md）。
+  zstd 日志聚合每个会话的系统提示长度、工具 schema 大小（`toolsChars`，验证
+  相对原始目录的 −17.6%）、首请求工具面、输入/输出/reasoning/缓存 tokens、
+  首字延迟、最终答复长度。首请求 system prompt 应包含压缩规则且其
+  `toolsChars` 为压缩值；对比同一 provider/model/reasoningEffort 下的基线
+  会话方可判定效果（doc 见 docs/BENCHMARK.md）。
 
 ## 重要行为
 
-- `tool-bootstrap` 默认禁用；其模块与 10 条单测保留，`disabled: true` 移除即恢复
-  由本 preset 提供首请求 2 工具面（shell + read），`promoteOn: either` 保证请求
-  #2 起恢复完整目录（纯文字首答也能晋升）。
+- `tool-bootstrap` **默认启用**（v0.2.0 基于被证伪的「host 默认已提供」假设将其
+  禁用，实测反例见 EXPERIMENT.md §9）。`promoteOn: either` 保证请求 #2 起恢复
+  完整目录（纯文字首答也能晋升）。仅当你的 host 组合可证明自带首请求锚定时
+  才应禁用。
+- `tool-compact` 只改写白名单描述；未命中工具与未命中参数逐字节通过，结构键
+  永不触碰，装载/运行失败降级为原目录（单测覆盖）。其行下 `disabled: true`
+  可得到干净的 A/B 对照臂。
 - 工具目录只变化一次，因此第一、二次请求之间会发生一次前缀缓存变化。
 - 插件不发起网络请求，也不增加遥测。
 - preset 与 shell 访问具有相同信任等级，安装前应自行审阅文件。

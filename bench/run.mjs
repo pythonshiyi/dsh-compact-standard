@@ -92,8 +92,10 @@ export function loadRecords(text) {
 export function aggregate(records) {
   const header = records.find((r) => r.type === 'session')
   const h0 = records.find((r) => r.type === 'request/header')
+  const h0tools = (h0?.data?.header?.tools ?? h0?.header?.tools ?? [])
   const sys = h0?.data?.header?.system ?? h0?.header?.system ?? ''
-  const toolsFirst = (h0?.data?.header?.tools ?? h0?.header?.tools ?? []).map((t) => t.name)
+  const toolsFirst = h0tools.map((t) => t.name)
+  const toolsChars = h0tools.reduce((s, t) => s + JSON.stringify(t).length, 0)
   const model = new Set()
   for (const r of records) {
     if (r.type === 'request/header') {
@@ -131,6 +133,7 @@ export function aggregate(records) {
     model: [...model].join(','),
     systemChars: sys.length,
     toolsFirst: toolsFirst.join('+') || '-',
+    toolsChars,
     steps: msgs.length,
     avgIn: avg('inputTokens'),
     avgOut: avg('outputTokens'),
@@ -168,7 +171,7 @@ function main() {
     console.log(JSON.stringify(rows, null, 2))
     return
   }
-  const cols = ['session', 'created', 'preset', 'model', 'systemChars', 'toolsFirst', 'steps', 'avgIn', 'avgOut', 'avgReason', 'cacheRead', 'finals', 'avgFinalOut', 'medianTtfbMs']
+  const cols = ['session', 'created', 'preset', 'model', 'systemChars', 'toolsChars', 'toolsFirst', 'steps', 'avgIn', 'avgOut', 'avgReason', 'cacheRead', 'finals', 'avgFinalOut', 'medianTtfbMs']
   console.log(cols.join(' | '))
   for (const r of rows) console.log(cols.map((c) => r[c] ?? '').join(' | '))
 }

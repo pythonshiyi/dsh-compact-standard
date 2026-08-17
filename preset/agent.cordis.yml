@@ -1,20 +1,20 @@
-# The `compact-standard` preset v0.2.0: full Standard capabilities with an
-# extreme compact-output expert prompt. 0.2.0 changes vs 0.1.2 (see CHANGELOG):
-#   - Persona rewritten to a denser 9-section form: every capability point of
-#     the 0.1.2 fusion text is preserved (priority adjudication, uncertainty
-#     handling, completeness rules, risk/rollback, override rule) while
-#     redundant phrasing is removed; ~25% shorter on measured character count,
-#     i.e. fewer system tokens per request before cache.
-#   - `tool-bootstrap` is DISABLED: DSH rc.5+ defaults (anchored-standard)
-#     already ship the same first-request 2-tool surface (verified on this
-#     host: first-request tool count was 2 both before and after this preset),
-#     so keeping a duplicate instance adds mount complexity and couples this
-#     preset to the session-event shape for zero marginal benefit. Re-enable by
-#     removing `disabled: true` if your host default lacks an anchored
-#     bootstrap.
-#   - New: docs/HOST-TUNING.md (the two host-level knobs that actually cut
-#     tokens: includeHarnessIdentity:false and reasoning-effort down-tuning)
-#     and docs/BENCHMARK.md (reproducible A/B procedure using session logs).
+# The `compact-standard` preset v0.3.0: full Standard capabilities with an
+# extreme compact-output expert prompt PLUS two deterministic token levers.
+# 0.3.0 changes vs 0.2.0 (see CHANGELOG):
+#   - NEW `tool-compact`: densifies every curated model-facing tool/parameter
+#     `description` at assembly time. Structural schema keys and unmatched
+#     tools/parameters are byte-identical; a failure degrades to the unchanged
+#     catalog. Measured on the real 25-tool catalog: 26,638 → 21,963 chars
+#     (−17.6%, ~4.7K chars/request before caching) with zero structural drift.
+#   - `tool-bootstrap` RE-ENABLED: the v0.2.0 audit's claim that the host
+#     default already ships the identical first-request 2-tool surface was
+#     disproven by a measured counter-example on this host — with the bundled
+#     bootstrap disabled, request #1 exposed the FULL 25-tool catalog
+#     (33.7K-char header vs 12.1K bootstrapped; session-881eba9a), and the
+#     readonly-first boundary was lost. The 2-tool anchor only ever existed
+#     because this preset's own bootstrap provided it (EXPERIMENT.md §9).
+#   - docs/BENCHMARK.md + bench/run.mjs now also measure tool-schema size per
+#     request, so the compression lever is verifiable on your own logs.
 #
 # This file remains an AGENT-PLANE composition. The roster mounts it ONCE under
 # a standing scope; every session naming it joins by scope parentage, so the
@@ -71,24 +71,31 @@
   config:
     maxBytes: 65536
 
-# First-request tool-surface reduction. DISABLED by default since v0.2.0: the
-# DSH rc.5+ product default (anchored-standard) already exposes the same
-# bootstrap surface (verified: first-request tool count is 2 — one platform
-# shell + read — with and without this preset), so this duplicate instance is
-# inert and only couples the preset to the session-event shape for nothing.
-# Remove `disabled: true` only if your host default composition has NO
-# bootstrap and you want this preset to own the reduction.
-# Config reference (kept for re-enabling): shellTools/ commonTools name the
-# bootstrap catalog; `promoteOn: either` promotes after the first tool call OR
-# the first assistant message, so request #1 always sees the small surface and
-# request #2 always sees the full catalog.
+# ── token levers (v0.3.0) ───────────────────────────────────────────────────
+
+# 1) First-request tool-surface reduction. ENABLED again (v0.2.0 regression
+#    fix): the assumption "the host default already ships the same anchor"
+#    was measured to be FALSE on this rc.6 host — with the bundled bootstrap
+#    disabled, request #1 exposed the FULL 25-tool catalog (33.7K-char header
+#    vs 12.1K bootstrapped). The 2-tool anchor only ever existed because THIS
+#    preset's own bootstrap provided it. Disable only when your host
+#    composition proves it provides an equivalent anchor itself.
 - id: tool-bootstrap
   name: ./tool-bootstrap.mjs
-  disabled: true
   config:
     shellTools: [bash, pwsh]
     commonTools: [read]
     promoteOn: either
+
+# 2) Tool-description compression — the largest per-request lever a preset
+#    can own. Rewrites curated model-facing `description` strings to densified
+#    texts; structural schema keys and unmatched tools/parameters are
+#    untouched; failure degrades to the unchanged catalog. Measured on the
+#    real 25-tool catalog: 26,638 → 21,963 chars (−17.6%) per request before
+#    caching, zero structural drift. Set `disabled: true` to A/B against the
+#    pristine catalog.
+- id: tool-compact
+  name: ./tool-compact.mjs
 
 # ── shell ───────────────────────────────────────────────────────────────────
 

@@ -1,5 +1,56 @@
 # Changelog
 
+## [0.3.0] - 2026-08-17
+
+The deterministic token-cut release. Adds the largest per-request lever a
+preset can own (tool-description compression) and reverses v0.2.0's disabled
+bootstrap after its premise was disproven by measurement.
+
+### Added
+
+- **`preset/tool-compact.mjs`** — assembly-time densification of curated
+  model-facing tool/parameter `description`s. Structural schema keys,
+  unmatched tools and unmatched parameters stay byte-identical; a mount or
+  runtime failure degrades to the unchanged catalog. Measured on the real
+  25-tool catalog of this host: **26,638 → 21,963 chars (−17.6%, ~4.7K
+  chars ≈ 1.2K+ tokens per uncached request and per context-window byte)**.
+  Pure projection (input never mutated); `disabled: true` supported for a
+  clean A/B arm.
+- `test/tool-compact.test.mjs` — 11 tests: curation, dot-path parameter
+  rewrites, structural invariance, byte-identical pass-through for unlisted
+  tools, purity, real-fixture compression regression (≥15% / ≥4000 chars),
+  degrade-on-failure, non-description value drift check on the real fixture.
+- `test/fixtures/tools-25.json` — the real 25-tool catalog captured from a
+  live rc.6 session header, checked in for reproducible structural-drift and
+  compression tests.
+- `bench/run.mjs` now also reports `toolsChars` (first-request tool-schema
+  bytes), so the compression lever is verifiable on your own logs; the two
+  session rows in docs/BENCHMARK.md double as bootstrap-regression evidence
+  (12.1K-char bootstrapped header vs 33.7K-char full catalog).
+
+### Changed (regression fix)
+
+- **`tool-bootstrap` ENABLED by default again.** The v0.2.0 rationale — "DSH
+  rc.5+ defaults already ship the same first-request 2-tool surface" — was a
+  comparison artifact: both presets had their OWN bootstrap at audit time
+  (0.1.x compact still enabled it). After v0.2.0 disabled the bundled copy, a
+  fresh compact-standard session's first request exposed the FULL 25-tool
+  catalog (session-881eba9a: 33.7K-char header vs session-6c0b72a4's 12.1K
+  with bootstrap), and the readonly-first boundary was lost. The 2-tool anchor
+  only ever existed because this preset's own bootstrap provided it
+  (EXPERIMENT.md §9).
+
+### Docs
+
+- README/README.zh-CN: measured-impact table rewritten around the three
+  deterministic levers (tool-compact, bootstrap, persona); the honest summary
+  now credits tool compression as the preset-level lever and host tuning
+  (reasoningEffort / includeHarnessIdentity) as the remaining unbilled-input
+  lever.
+- EXPERIMENT.md §9: v0.3.0 audit — how the bootstrap premise was tested and
+  disproven with session-level evidence, and the tool-compact measurement.
+- docs/BENCHMARK.md: `toolsChars` metric and updated reference values.
+
 ## [0.2.0] - 2026-08-17
 
 Measured-motivated revision. A runtime audit of local session logs (same

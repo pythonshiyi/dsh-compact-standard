@@ -24,31 +24,45 @@ affiliated with or endorsed by DeepSeek.
   obligations, DSH-tool result distillation, and an override rule letting
   explicit in-conversation user instructions beat the default compression.
 - Keeps the full Standard tool catalog, so capability is not reduced.
+- **v0.3.0 deterministic token levers** (measured, see EXPERIMENT.md §9):
+  - `tool-compact`: densifies curated model-facing tool/parameter descriptions
+    at assembly time. Structural schema keys, unmatched tools and unmatched
+    parameters stay byte-identical; failure degrades to the unchanged catalog.
+    Measured on the real 25-tool catalog: **26,638 → 21,963 chars (−17.6%,
+    ~4.7K chars ≈ 1.2K+ tokens per request before caching)**, zero structural
+    drift (test-asserted). Execution goes through the registry's own
+    definitions — only the strings the model sees are rewritten. Disable with
+    `disabled: true` under the `tool-compact` row for a clean A/B.
+  - `tool-bootstrap` is ENABLED by default again. v0.2.0 disabled it claiming
+    the host default ships an equivalent first-request anchor; measurement on
+    this host showed the opposite: with the bundled bootstrap off, the FIRST
+    request exposed the full 25-tool catalog (33.7K-char header vs 12.1K
+    bootstrapped; session-881eba9a vs session-6c0b72a4 in bench output), and
+    the readonly-first boundary was lost. The 2-tool anchor only ever existed
+    because this preset's own bootstrap provided it.
 - DSH-specific optimizations, stated on a measured basis since v0.2.0:
   - a normal `dsh-persona` section instead of `complete: true`, so plan-mode
     and other cooperative prompt sections remain active;
-    `includeRuntimeContext: false` keeps the prompt lean;
-  - `tool-bootstrap` is **disabled by default**: DSH rc.5+ defaults
-    (anchored-standard) already ship the same first-request tool-surface
-    reduction (verified: both expose only shell/read on request #1), so this
-    preset no longer mounts a duplicate. Remove the `disabled: true` line to
-    enable the bundled one when your host composition lacks an anchored
-    bootstrap.
+    `includeRuntimeContext: false` keeps the prompt lean.
 
-## Measured impact (v0.2.0, see EXPERIMENT.md §8 and docs/BENCHMARK.md)
+## Measured impact (v0.3.0, see EXPERIMENT.md §9 and docs/BENCHMARK.md)
 
 | Item | Measured on this project's host (DSH rc.6, deepseek-v4-flash) |
 |---|---|
 | Persona injection | Yes (verbatim in the assembled system prompt) |
-| Persona size | 0.1.2: 1,098 chars → 0.2.0: 738 chars (**−33%**, all 9 sections preserved) |
-| First-request tool surface | 2 tools (pwsh+read), identical to the host default → bundled bootstrap had zero marginal gain, now disabled by default |
+| Persona size | 738 chars (9 sections preserved) |
+| Tool catalog size/request | 26,638 → 21,963 chars with `tool-compact` (**−17.6%**, structural keys untouched, 25/25 tools preserved) |
+| First-request tool surface | 2 tools (pwsh+read) with bootstrap enabled; full 25-tool catalog if disabled (33.7K-char header) |
 | System prompt | default 46 chars → ~7,022 chars with this preset (uncached +2.4–2.6K tokens/request; amortized by context caching) |
 | Output/reasoning tokens | confounded on this host by a concurrent provider switch (opencode-go); **no attribution claimed** — a controlled A/B via `bench/run.mjs` is required |
 
-**Honest summary**: the preset's deterministic effect is the persona (a soft
-instruction influencing output style and thinking tendency) plus a system-prompt
-swap. The real token lever is host-level; pairing this preset with
-`scripts/install.mjs` host tuning yields far more than the persona alone.
+**Honest summary**: the preset's deterministic effects are (a) tool-catalog
+compression (tool-compact, −17.6% measured — the larger per-request lever a
+preset can own), (b) the first-request 2-tool anchor (bootstrap), and (c) the
+persona (a soft instruction on output style and thinking tendency). The
+remaining unbilled-input lever is host-level; pairing this preset with
+`scripts/install.mjs` host tuning yields far more than the persona alone (see
+docs/HOST-TUNING.md).
 
 ## System prompt
 
@@ -135,21 +149,29 @@ a different preset.
 
 ## Verify
 
-- Static: `npm test` (persona 9-section assertions, bootstrap-disabled-by-default
-  assertion, tool-catalog completeness, measurement tooling presence).
+- Static: `npm test` (persona 9-section assertions, tool-bootstrap-enabled and
+  tool-compact-mounted assertions, tool-catalog completeness, structural-drift
+  and compression-ratio regression on the real 25-tool fixture).
 - Runtime: `npm run bench [<session-dir-or-file>]` — aggregates per-session
-  system-prompt length, first-request tool surface, input/output/reasoning/
-  cache tokens, time-to-first-token, and final-answer size from the zstd
-  session logs under `~/.dsh/sessions`. Confirm the first request's system
-  prompt contains the compression rules; judge effects only against a baseline
-  arm on the SAME provider/model/reasoningEffort (docs/BENCHMARK.md).
+  system-prompt length, tool-schema size (`toolsChars` — verify −17.6% vs the
+  pristine catalog), first-request tool surface, input/output/reasoning/cache
+  tokens, time-to-first-token, and final-answer size from the zstd session
+  logs under `~/.dsh/sessions`. Confirm the first request's system prompt
+  contains the compression rules and its `toolsChars` is the compressed value;
+  judge effects only against a baseline arm on the SAME provider/model/
+  reasoningEffort (docs/BENCHMARK.md).
 
 ## Important behavior
 
-- `tool-bootstrap` is disabled by default; its module and 10 unit tests remain.
-  Removing `disabled: true` restores the bundled first-request 2-tool surface
-  (shell + read); `promoteOn: either` guarantees promotion to the full catalog
-  at request #2 (a text-only first reply still promotes).
+- `tool-bootstrap` is ENABLED by default (v0.2.0 disabled it on a disproven
+  host-default assumption; see EXPERIMENT.md §9 for the measured
+  counter-example). `promoteOn: either` guarantees promotion to the full
+  catalog at request #2 (a text-only first reply still promotes). Disable only
+  when your host composition provably anchors request #1 itself.
+- `tool-compact` rewrites curated descriptions only; unmatched tools and
+  unmatched parameters pass through byte-identical, structural keys are never
+  touched, and a mount/runtime failure degrades to the unchanged catalog
+  (unit-tested). `disabled: true` under its row gives a clean A/B arm.
 - The tool catalog changes once, so request-prefix cache continuity also
   changes once between the first and second model requests.
 - The plugin performs no network requests and adds no telemetry.

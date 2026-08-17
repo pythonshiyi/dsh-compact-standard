@@ -1,8 +1,8 @@
 {
   "name": "dsh-compact-standard",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
-  "description": "DeepSeek Harness agent preset: full Standard tools plus an extreme compact-output expert prompt",
+  "description": "DeepSeek Harness agent preset: full Standard tools plus a compact expert prompt, tool-description compression (-17.6% measured), and first-request bootstrap",
   "type": "module",
   "license": "MIT",
   "homepage": "https://github.com/pythonshiyi/dsh-compact-standard#readme",
@@ -15,8 +15,9 @@
   },
   "scripts": {
     "test": "node --test",
-    "check": "node --check preset/tool-bootstrap.mjs && node --test",
+    "check": "node --check preset/tool-bootstrap.mjs && node --check preset/tool-compact.mjs && node --test",
     "bench": "node bench/run.mjs",
+    "measure": "node scripts/measure-tools.mjs",
     "install:tune": "node scripts/install.mjs tune",
     "install:verify": "node scripts/install.mjs verify",
     "install:rollback": "node scripts/install.mjs rollback"

@@ -1,18 +1,20 @@
-# Host-level tuning — where the real token savings live
+# Host-level tuning — where the remaining token savings live
 
-A preset cannot own host-plane configuration. The knobs below are larger than
-anything a persona can do, and are the honest answer to "how do I actually
-cut tokens". Everything here is user-owned config; `scripts/install.mjs`
-applies it with backup and rollback (dry-run by default).
+A preset cannot own host-plane configuration. v0.3.0 already moved the largest
+preset-level lever (tool-description trimming) into `tool-compact`; the knobs
+below are the ones a preset still cannot touch, and they are the honest answer
+to "how do I actually cut tokens further". Everything here is user-owned
+config; `scripts/install.mjs` applies it with backup and rollback (dry-run by
+default).
 
 ## Summary of what is measurable on a stock install
 
 | Knob | Where | Effect (measured on this project's host) |
 |---|---|---|
-| `reasoningEffort` down-tuning | `~/.dsh/settings.yaml` → `agent-default-model` | Baseline sessions burned 85–3,890 reasoning tokens per step (output-priced). Lowering the budget removes most of it. |
+| Reasoning-effort down-tuning | `~/.dsh/settings.yaml` → `agent-default-model` | Baseline sessions burned 85–3,890 reasoning tokens per step (output-priced). Lowering the budget removes most of it. |
 | `agent-presets.default` | `~/.dsh/settings.yaml` | Selects this preset for new sessions. |
 | `includeHarnessIdentity: false` | host composition only | Removes ~4.5K chars of identity prose per request — **but on stock installs there is no user-level file to set it**; the text lives inside the compiled DSH app. Only mounts that ship their own `base.cordis.yml` composition (custom host) can use it. A preset cannot own this. See below. |
-| Tool-description trimming | custom preset | The single largest per-request lever; out of scope of the Standard snapshot. |
+| Tool-description trimming | this preset (`tool-compact`) | v0.3.0 moved the largest per-request lever INTO the preset: curated description densification at assembly time, measured −17.6% (26,638 → 21,963 chars) on the real 25-tool catalog, structural keys untouched. `disabled: true` on the `tool-compact` row toggles it. What remains host-only here: the ~4.7K-char system/tool guidance text compiled into the app. |
 
 ## One-command tuning
 

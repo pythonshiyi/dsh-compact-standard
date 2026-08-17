@@ -20,6 +20,9 @@ dsh-compact-standard includes adapted copies of, and work inspired by:
    Note: this repository's `tool-bootstrap.mjs` is a rewritten implementation
    inspired by the original; it is not a verbatim adapted copy.
 
+3. `preset/tool-compact.mjs` (v0.3.0) is an original implementation for this
+   project; it contains no code from upstream.
+
 The full MIT permission notice is included in this repository's LICENSE file.
 
 DeepSeek and DeepSeek Harness are names of their respective owner. This

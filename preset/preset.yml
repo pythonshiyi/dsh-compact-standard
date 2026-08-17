@@ -1,5 +1,5 @@
 name: Compact Standard (compressed expert)
-description: Full Standard tool catalog with a densified 9-section compact-output expert prompt; lean runtime context; bootstrap delegated to the host default (disabled duplicate).
-version: 0.2.0
+description: Full Standard tool catalog with a densified 9-section compact-output expert prompt, tool-description compression (-17.6% measured on the real catalog), and first-request 2-tool bootstrap re-enabled.
+version: 0.3.0
 order: 6
 compat: dsh 0.1.0-rc.5+ (rc.6 verified on host)

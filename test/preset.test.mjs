@@ -17,7 +17,7 @@ test('preset metadata identifies Compact Standard', () => {
 })
 
 test('preset metadata carries a version', () => {
-  assert.match(preset, /version:\s*0\.2\.0/)
+  assert.match(preset, /version:\s*0\.3\.0/)
   assert.match(preset, /compat:/)
 })
 
@@ -40,10 +40,22 @@ test('DSH optimizations are enabled', () => {
   assert.match(agent, /tool-bootstrap/)
 })
 
-test('tool-bootstrap duplicates the host default and is disabled by default', () => {
-  const boot = agent.split(/- id:\s*tool-bootstrap/)[1].split(/- id:\s*tool-bash/)[0]
-  assert.match(boot, /disabled:\s*true/)
-  assert.match(boot, /promoteOn:\s*(either|tool-call|assistant-message)/)
+test('tool-bootstrap is enabled by default (v0.2.0 regression fixed)', () => {
+  const boot = agent.split(/- id:\s*tool-bootstrap/)[1].split(/- id:\s*tool-compact/)[0]
+  // Strip comment lines: `disabled: true` may appear in prose ("Set disabled:
+  // true to A/B") but must not be an actual mounted config key.
+  const code = boot.split('\n').filter((line) => !line.trimStart().startsWith('#')).join('\n')
+  assert.doesNotMatch(code, /disabled:\s*true/)
+  assert.match(code, /promoteOn:\s*(either|tool-call|assistant-message)/)
+  assert.match(code, /shellTools:\s*\[bash, pwsh\]/)
+  assert.match(code, /commonTools:\s*\[read\]/)
+})
+
+test('tool-compact is mounted and enabled by default', () => {
+  assert.match(agent, /- id:\s*tool-compact/)
+  const block = agent.split(/- id:\s*tool-compact/)[1].split(/- id:\s*tool-bash/)[0]
+  assert.match(block, /name:\s*\.\/tool-compact\.mjs/)
+  assert.doesNotMatch(block, /disabled:\s*true/)
 })
 
 test('plan-mode section remains active', () => {
@@ -58,8 +70,8 @@ test('full Standard tool catalog remains present', () => {
   }
 })
 
-test('v0.2.0 measurement tooling ships with the repo', () => {
-  for (const f of ['scripts/install.mjs', 'bench/run.mjs', 'docs/HOST-TUNING.md', 'docs/BENCHMARK.md']) {
+test('v0.3.0 measurement tooling ships with the repo', () => {
+  for (const f of ['scripts/install.mjs', 'bench/run.mjs', 'docs/HOST-TUNING.md', 'docs/BENCHMARK.md', 'preset/tool-compact.mjs', 'test/fixtures/tools-25.json']) {
     assert.ok(existsSync(join(root, f)), `missing ${f}`)
   }
 })

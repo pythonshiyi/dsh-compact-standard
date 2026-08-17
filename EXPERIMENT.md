@@ -104,3 +104,62 @@ deepseek-v4-flash，读取 `~/.dsh/sessions/*/session.jsonl.zstd`，方法与数
 验证：`npm test` 全绿；`bench/run.mjs` 在真实会话日志上端到端复现审计数值。
 已知限制：输出/reasoning 效果的受控 A/B（同 provider/同模型/同任务）留待
 `bench/run.mjs` 按规程执行；本主机因 provider 切换无法提供该对照。
+
+## 9. v0.3.0 实测审计：bootstrap 前提证伪与 tool-compact 落量（2026-08-17）
+
+### 9.1 v0.2.0 的 bootstrap 结论是错的（本机实测反例）
+
+v0.2.0 依据「首请求工具数带不带本 preset 都是 2」禁用自带 `tool-bootstrap`。
+重构时间线后发现这是**对照污染**：审计时的 compact 会话（v0.1.x）自带
+bootstrap 是**启用**的，而对照的 anchored-standard 也自带 bootstrap——
+"两者都是 2" 等价于「两套各自的自带 bootstrap 等价」，并不能推出「host
+默认已为 compact 会话提供同一缩面」。
+
+v0.3.0 以本机会话日志验证（同 DSH rc.6、同 opencode-go/deepseek-v4-flash）：
+
+| 会话 | 版本状态 | 请求#1 工具数 | 请求#1 header 工具 schema 字节 |
+|---|---|---|---|
+| `6c0b72a4`（08-17 20:20 本地，v0.1.x） | 自带 bootstrap 启用 | 2（pwsh+read） | 4,857 |
+| `881eba9a`（08-17 22:54 本地，v0.2.0） | 自带 bootstrap 禁用 | 25（全目录） | 26,638 |
+
+同一 preset 名下，bootstrap 从启用到禁用，首请求工具面即从 2 增至 25；
+host 默认（anchored-standard）作为独立 preset 只影响选择它的会话，并不会
+全局为 compact 会话提供锚定。**结论：首请求 2 工具缩面此前只由本 preset
+自带 bootstrap 提供；v0.2.0 删除它是回归。** 另：首请求从 12.1K 字符
+（2 工具）增至 33.7K 字符（25 工具），即每新会话首请求多付约 21.6K 字符
+（约 5–7K tokens）的未缓存工具 schema，且失去「首轮只读」边界。
+
+### 9.2 `tool-compact`——preset 层可拥有的最大确定性杠杆
+
+动机：v0.2.0 已承认「工具描述裁剪是每请求最大杠杆，超出标准快照范围」
+（docs/HOST-TUNING.md 表）。v0.3.0 把它搬进 preset 层：在
+`system-prompt/assemble` 事件里改写模型面工具/参数 `description`，结构键
+（type/properties/required/items/enum/const/additionalProperties/default）
+与未命中工具/参数逐字节保持，执行仍走注册表自身定义（tool-bootstrap 早已
+证明对 assembled.tools 做投影不影响执行）。
+
+实测（真实 25 工具目录，`test/fixtures/tools-25.json`，由本机 rc.6 会话
+header 抓取）：
+
+| 指标 | 值 |
+|---|---|
+| 压缩前 | 26,638 字符 |
+| 压缩后 | 21,963 字符（−17.6%，−4,675 字符） |
+| 结构漂移 | 0（25/25 工具逐字节比对，非 description 字段绝无差异） |
+| 未命中/降级 | 未命中工具原引用返回；运行异常降级为原目录 |
+
+量级换算：约 4.7K 字符/请求，按典型英文 JSON tokenizer（~3.5–4
+字符/token）约 1.2–1.4K tokens/请求（未缓存全额；缓存命中按 provider 计费
+折扣摊薄）。这是 persona（738 字符）永远够不到的确定性削减，且不触碰执行
+路径。压缩边界以「规范句全保留、解释/示例句删除」为原则——pwsh 的沙箱/
+EPERM/升级规则、workflow 的 hooks 契约、goal/plan 规则等行为性文本全部
+保留在压缩版中，测试对真实 fixture 做非 description 值零漂移断言。
+
+### 9.3 剩余杠杆与诚实边界
+
+- host 层仍占大头：`reasoningEffort` 降档（本机 settings.yaml 仍是 max，未
+  应用）、`includeHarnessIdentity: false`（stock 无此开关）、工具描述之外
+  的 system/tool guidance 文本（约 4.7K 字符，属编译文本，preset 不可改）。
+- 输出/reasoning 端依旧无归因数据；tool-compact 只承诺输入侧确定性削减。
+- 受控 A/B（同 provider/同模型/同任务，开关 tool-compact 与 bootstrap）仍
+  是判定「采纳」的唯一合格证据，规程见 docs/BENCHMARK.md。
