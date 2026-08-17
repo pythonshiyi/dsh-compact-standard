@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { readFileSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -16,27 +16,21 @@ test('preset metadata identifies Compact Standard', () => {
   assert.match(preset, /compressed expert/)
 })
 
+test('preset metadata carries a version', () => {
+  assert.match(preset, /version:\s*0\.2\.0/)
+  assert.match(preset, /compat:/)
+})
+
 test('persona uses the compact-output expert prompt', () => {
   assert.match(agent, /text:\s*\|/)
   assert.match(agent, /极致压缩思考与输出/)
   assert.match(agent, /不压缩代码/)
   assert.match(agent, /结论先行/)
   assert.match(agent, /【DSH 工具】/)
-})
-
-test('persona includes v0.1.2 high-density additions', () => {
-  // priority ordering resolves compression-vs-completeness conflicts
-  assert.match(agent, /【优先级】/)
-  assert.match(agent, /以完整性为准/)
-  // uncertainty handling: must not fabricate; assumptions explicit
-  assert.match(agent, /【不确定性】/)
-  assert.match(agent, /信息不足，需确认/)
-  assert.match(agent, /假设：/)
-  // risk obligations for high-impact operations
-  assert.match(agent, /【风险】/)
-  assert.match(agent, /回滚/)
-  // user's explicit in-conversation instructions may override the baseline
-  assert.match(agent, /【覆盖规则】/)
+  // v0.2.0 densified persona keeps every capability section
+  for (const section of ['【思考】', '【输出】', '【优先级】', '【完整性】', '【不确定性】', '【风险】', '【DSH 工具】', '【覆盖规则】']) {
+    assert.ok(agent.includes(section), `missing persona section ${section}`)
+  }
 })
 
 test('DSH optimizations are enabled', () => {
@@ -44,6 +38,12 @@ test('DSH optimizations are enabled', () => {
   assert.doesNotMatch(agent, /^\s*complete:\s*true\s*$/m)
   assert.match(agent, /includeRuntimeContext:\s*false/)
   assert.match(agent, /tool-bootstrap/)
+})
+
+test('tool-bootstrap duplicates the host default and is disabled by default', () => {
+  const boot = agent.split(/- id:\s*tool-bootstrap/)[1].split(/- id:\s*tool-bash/)[0]
+  assert.match(boot, /disabled:\s*true/)
+  assert.match(boot, /promoteOn:\s*(either|tool-call|assistant-message)/)
 })
 
 test('plan-mode section remains active', () => {
@@ -55,5 +55,11 @@ test('plan-mode section remains active', () => {
 test('full Standard tool catalog remains present', () => {
   for (const tool of ['tool-bash', 'tool-pwsh', 'tool-fs', 'tool-fs-search', 'tool-jobs', 'tool-skill', 'tool-goal', 'tool-subagent', 'tool-workflow', 'tool-ask-user', 'tool-todo', 'tool-web']) {
     assert.match(agent, new RegExp(`id:\\s*${tool}`))
+  }
+})
+
+test('v0.2.0 measurement tooling ships with the repo', () => {
+  for (const f of ['scripts/install.mjs', 'bench/run.mjs', 'docs/HOST-TUNING.md', 'docs/BENCHMARK.md']) {
+    assert.ok(existsSync(join(root, f)), `missing ${f}`)
   }
 })

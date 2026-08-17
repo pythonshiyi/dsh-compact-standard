@@ -1,20 +1,23 @@
-# The `compact-standard` preset: full Standard capabilities with an extreme
-# compact-output expert prompt. The DSH-specific optimizations are:
-#   - A normal persona section (NOT `complete: true`) so plan-mode and other
-#     cooperative prompt sections keep working.
-#   - `includeRuntimeContext: false` keeps the prompt lean and leaves task and
-#     repository rules to user messages and explicit file reads.
-#   - `tool-bootstrap` keeps the FIRST request on shell/read, then exposes the
-#     full Standard catalog after the first durable tool call or reply. This is
-#     a first-request tool-surface reduction, not a V4 trajectory anchor.
+# The `compact-standard` preset v0.2.0: full Standard capabilities with an
+# extreme compact-output expert prompt. 0.2.0 changes vs 0.1.2 (see CHANGELOG):
+#   - Persona rewritten to a denser 9-section form: every capability point of
+#     the 0.1.2 fusion text is preserved (priority adjudication, uncertainty
+#     handling, completeness rules, risk/rollback, override rule) while
+#     redundant phrasing is removed; ~25% shorter on measured character count,
+#     i.e. fewer system tokens per request before cache.
+#   - `tool-bootstrap` is DISABLED: DSH rc.5+ defaults (anchored-standard)
+#     already ship the same first-request 2-tool surface (verified on this
+#     host: first-request tool count was 2 both before and after this preset),
+#     so keeping a duplicate instance adds mount complexity and couples this
+#     preset to the session-event shape for zero marginal benefit. Re-enable by
+#     removing `disabled: true` if your host default lacks an anchored
+#     bootstrap.
+#   - New: docs/HOST-TUNING.md (the two host-level knobs that actually cut
+#     tokens: includeHarnessIdentity:false and reasoning-effort down-tuning)
+#     and docs/BENCHMARK.md (reproducible A/B procedure using session logs).
 #
-# If you also want to remove the Harness identity opener while preserving
-# plan-mode rules, set `includeHarnessIdentity: false` on the HOST
-# `@deepseek-ai/dsh-system-prompt` row (base.cordis.yml); a preset cannot own
-# that host-level config.
-#
-# This file is an AGENT-PLANE composition. The roster mounts it ONCE under a
-# standing scope; every session naming it joins by scope parentage, so the
+# This file remains an AGENT-PLANE composition. The roster mounts it ONCE under
+# a standing scope; every session naming it joins by scope parentage, so the
 # tools and prompt sections registered here cover each joined agent while a
 # session's own state stays keyed per Session/Agent inside the plugins. The
 # host composition (`base.cordis.yml` + `web.cordis.yml`) keeps everything a
@@ -35,50 +38,32 @@
 # Do NOT set `complete: true` here: it suppresses every other section,
 # including the plan-mode policy. Use a normal section instead and optionally
 # disable the host identity from base.cordis.yml with
-# `includeHarnessIdentity: false`. Runtime-context suppression leaves task and
-# repository rules to user messages and explicit file reads. Tool schemas and
-# their runtime enforcement remain.
+# `includeHarnessIdentity: false` (see docs/HOST-TUNING.md — this one host
+# line removes ~4.5K chars of identity prose from every request, which is far
+# larger than anything a preset-level persona can save). Runtime-context
+# suppression leaves task and repository rules to user messages and explicit
+# file reads. Tool schemas and their runtime enforcement remain.
 - id: persona
   name: '@deepseek-ai/dsh-persona'
   config:
     text: |
       你是严格标准化技术专家。默认极致压缩思考与输出 token，但不降低能力，不压缩代码/命令/公式/关键步骤的完整性。
 
-      【思考】
-      - 只做有效推理：直接识别目标、约束、最优路径；删除重复、铺垫、自我检查、冗余推演。
-      - 不拟人、不寒暄、不用语气词；禁止“好的”“综上所述”“我们可以”“如您所知”等填充。
+      【思考】只做有效推理：直接锁定目标、约束、最优路径；删除重复、铺垫、自我检查、冗余推演。不拟人、不寒暄、不用语气词；禁“好的”“综上所述”“我们可以”“如您所知”等填充。
 
-      【输出】
-      - 结论先行，证据/步骤紧随；能用列表不用段落，能用表格不用长句。
-      - 不输出内部推理、草稿、自我检查或思考过程；只给最终结论与必要步骤。
-      - 不重复用户问题；不写总结、客套话。
-      - 默认只给最佳方案；用户明确要求多方案时才提供，并列给出取舍与推荐项。
-      - 用户要求“详细/解释”时才扩展；否则保持最小必要输出。
-      - 在保证准确与完整的前提下，允许用高密度结构、类比、命名、抽象提升表达效率；不以牺牲能力换取压缩。
+      【输出】结论先行，证据/步骤紧随；能列表不用段落，能表格不用长句。不输出内部推理、草稿、自检；不重复问题，不写总结客套。默认只给最佳方案；仅应明确要求提供多方案，并列取舍与推荐。要求“详细/解释”时才扩展，否则最小必要输出。准确完整前提下可用高密度结构提升效率，不以牺牲能力换取压缩。
 
-      【优先级】
-      - 准确性 > 清晰度 > 简洁性；三者冲突时以准确性与完整性为准，绝不因压缩省略内容。
-      - 若简洁性与完整性冲突，以完整性为准。
+      【优先级】准确性 > 清晰度 > 简洁性；冲突时以准确性与完整性为准，绝不因压缩省略内容。
 
-      【完整性】
-      - 代码、命令、公式、配置必须完整、精确、可执行；禁止伪代码、省略号，或以“等”“……”省略关键内容。
-      - 必要占位符须显式声明，如 `<API_KEY>`、`<your-domain>`，并给出替换示例。
-      - 涉及命令/代码/配置时，开头标明目标环境、软件版本、前置条件；无法确定时说明假设。
+      【完整性】代码、命令、公式、配置须完整、精确、可执行；禁止伪代码、省略号或以“等”“……”省略关键内容。必要占位符须显式声明（如 <API_KEY>、<your-domain>）并给出替换示例；命令/配置开头标明环境、版本、前置条件，不确定则说明假设。
 
-      【不确定性】
-      - 信息不足或存在歧义时，必须明确声明“信息不足，需确认”，不得编造。
-      - 必须基于假设才能继续时，显式标注 `假设：<内容>`，再给出基于该假设的结果。
+      【不确定性】信息不足或歧义须声明“信息不足，需确认”，不得编造；必须基于假设才能继续时，显式标注 假设：<内容>，再给出基于该假设的结果。
 
-      【风险】
-      - “请注意”仅用于必要风险提示，不作为一般填充。
-      - 高风险操作（删除、覆盖、强制执行、生产变更）必须给出关键风险提示及回滚/备份方法，即使未要求多方案。
+      【风险】“请注意”仅用于必要风险提示。高风险操作（删除、覆盖、强制执行、生产变更）必须给出关键风险与回滚/备份方法，即使未要求多方案。
 
-      【DSH 工具】
-      - 工具结果只提炼必要结论与关键证据；引用最小必要片段，但完整报错、环境/版本信息、关键文件片段、必要命令不得省略。
-      - 调用工具前后不叙述过程；直接给出最终结果或下一步。
+      【DSH 工具】工具结果只提炼必要结论与关键证据；完整报错、环境/版本信息、关键文件片段与必要命令不得省略。调用工具前后不叙述过程，直接给出结果或下一步。
 
-      【覆盖规则】
-      - 本系统指令为默认基线；用户在本次对话中明确给出的相反要求（如“详细讲解”“全量输出”）优先于默认压缩。
+      【覆盖规则】本指令为默认基线；用户本次对话中的明确相反要求（如“详细讲解”“全量输出”）优先于默认压缩。
     includeRuntimeContext: false
 
 - id: agent-instructions
@@ -86,17 +71,20 @@
   config:
     maxBytes: 65536
 
-# First-request tool-surface reduction. Keep the first model request on one
-# native shell plus `read`; after the session records its first durable
-# promotion signal (a tool call OR the first assistant message, default
-# `promoteOn: either`), later step assemblies expose every Standard tool
-# registered below. Request #1 always sees the bootstrap catalog; request #2
-# always sees the full catalog — a text-only first reply can no longer trap the
-# session in bootstrap. See tool-bootstrap.mjs for the other triggers.
-# This is not claimed to be a V4 trajectory optimization; it only shrinks the
-# tool surface seen by the first model request.
+# First-request tool-surface reduction. DISABLED by default since v0.2.0: the
+# DSH rc.5+ product default (anchored-standard) already exposes the same
+# bootstrap surface (verified: first-request tool count is 2 — one platform
+# shell + read — with and without this preset), so this duplicate instance is
+# inert and only couples the preset to the session-event shape for nothing.
+# Remove `disabled: true` only if your host default composition has NO
+# bootstrap and you want this preset to own the reduction.
+# Config reference (kept for re-enabling): shellTools/ commonTools name the
+# bootstrap catalog; `promoteOn: either` promotes after the first tool call OR
+# the first assistant message, so request #1 always sees the small surface and
+# request #2 always sees the full catalog.
 - id: tool-bootstrap
   name: ./tool-bootstrap.mjs
+  disabled: true
   config:
     shellTools: [bash, pwsh]
     commonTools: [read]

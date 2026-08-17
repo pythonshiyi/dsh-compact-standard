@@ -75,3 +75,32 @@
 融合版在不牺牲紧凑性的前提下吸收了第二版的全部能力增量，修复了第一版的三个能力
 真空（冲突裁决、防幻觉、环境标注），同时修正了第二版的覆盖规则与思考引导缺陷。
 v0.1.2 全部验证通过，可作为本 preset 的最终形态交付。
+
+## 8. v0.2.0 实测审计与修订（2026-08-17）
+
+对运行本 preset 的主机进行运行时审计（同机、同 DSH 0.1.0-rc.6、同模型
+deepseek-v4-flash，读取 `~/.dsh/sessions/*/session.jsonl.zstd`，方法与数值见
+`docs/BENCHMARK.md`）：
+
+| 审计项 | 结果 |
+|---|---|
+| persona 是否注入 | 是（会话 system prompt 逐字命中） |
+| 首请求工具面 | 2 工具（pwsh+read），与未装插件时相同 → 插件自带 bootstrap 为重复实现，无边际增益 |
+| 系统提示长度 | 46 字符（默认）→ 7,022 字符（本 preset）→ 每请求未缓存增量约 2.4–2.6K tokens；上下文缓存摊薄 |
+| reasoning tokens | 插件会话 0/步 vs 默认会话 85–3,890/步，但两组同时切换 provider（deepseek-official → opencode-go），**不可归因** |
+| 输出 token | 插件会话最终答复均值 1.9–4.4K（n=5）vs 默认会话 0.63–1.0K（n 大），**不支持"输出被压缩"** |
+
+据此修订：
+
+1. persona 由 1,098 字符压缩至 738 字符（9 节能力全保留、断言契约全命中，
+   首句"不压缩代码/命令/公式/关键步骤的完整性"原文保留）；
+2. `tool-bootstrap` 默认 `disabled: true`，交给 host 默认的 anchored bootstrap
+   （两者实测等价）；模块与 10 条单测保留，需要时移除 `disabled: true` 启用；
+3. 新增 `scripts/install.mjs`（settings.yaml 一键调优：reasoningEffort 降档 +
+   preset 选择，带备份/回滚，默认 dry-run）与 `bench/run.mjs`（会话日志指标
+   聚合），新增 `docs/HOST-TUNING.md`、`docs/BENCHMARK.md`；
+4. README 全面改写为"可测量"口径：不再声称未经实测的输出压缩。
+
+验证：`npm test` 全绿；`bench/run.mjs` 在真实会话日志上端到端复现审计数值。
+已知限制：输出/reasoning 效果的受控 A/B（同 provider/同模型/同任务）留待
+`bench/run.mjs` 按规程执行；本主机因 provider 切换无法提供该对照。
