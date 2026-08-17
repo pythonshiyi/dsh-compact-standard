@@ -75,6 +75,11 @@ code/commands/formulas/critical-step completeness.
   efficiency; never trade capability for compression.
 ```
 
+> Note: with default host settings, DeepSeek Harness prepends its fixed
+> identity opener before this persona. If you want to remove it while keeping
+> plan-mode sections, set host `includeHarnessIdentity: false` in
+> `base.cordis.yml`.
+
 ## Compatibility
 
 Developed and tested against:

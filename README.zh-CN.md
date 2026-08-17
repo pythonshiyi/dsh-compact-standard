@@ -55,6 +55,10 @@
 - 在保证准确与完整的前提下，允许用高信息密度的结构、类比、命名、抽象来提升表达效率；不以牺牲能力换取压缩。
 ```
 
+> 注意：默认 host 配置下，DeepSeek Harness 会在该 persona 前附加固定身份开场白。
+> 如希望在保留 plan mode 的情况下去掉它，请在 `base.cordis.yml` 的 host 层
+> `@deepseek-ai/dsh-system-prompt` 中设置 `includeHarnessIdentity: false`。
+
 ## 兼容范围
 
 开发和验证版本：
