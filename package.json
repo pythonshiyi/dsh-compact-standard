@@ -1,6 +1,6 @@
 {
   "name": "dsh-compact-standard",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "DeepSeek Harness agent preset: full Standard tools plus an extreme compact-output expert prompt",
   "type": "module",

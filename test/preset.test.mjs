@@ -24,6 +24,21 @@ test('persona uses the compact-output expert prompt', () => {
   assert.match(agent, /【DSH 工具】/)
 })
 
+test('persona includes v0.1.2 high-density additions', () => {
+  // priority ordering resolves compression-vs-completeness conflicts
+  assert.match(agent, /【优先级】/)
+  assert.match(agent, /以完整性为准/)
+  // uncertainty handling: must not fabricate; assumptions explicit
+  assert.match(agent, /【不确定性】/)
+  assert.match(agent, /信息不足，需确认/)
+  assert.match(agent, /假设：/)
+  // risk obligations for high-impact operations
+  assert.match(agent, /【风险】/)
+  assert.match(agent, /回滚/)
+  // user's explicit in-conversation instructions may override the baseline
+  assert.match(agent, /【覆盖规则】/)
+})
+
 test('DSH optimizations are enabled', () => {
   // `complete: true` would suppress plan-mode and other sections; must NOT be set.
   assert.doesNotMatch(agent, /^\s*complete:\s*true\s*$/m)
